@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>班级作文互评系统</title>
+    <style>
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; color: #333; }
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: 0 auto; height: 85vh; }
+        
+        /* 左侧作文区 */
+        .essay-panel { flex: 7; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); overflow-y: auto; }
+        .essay-panel h1 { font-size: 24px; margin-bottom: 10px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .author-tag { display: inline-block; background-color: #e3f2fd; color: #1976d2; padding: 4px 12px; border-radius: 20px; font-size: 14px; margin-bottom: 20px; }
+        .essay-panel p { font-size: 18px; line-height: 1.8; color: #555; }
+
+        /* 右侧打分区 */
+        .score-panel { flex: 3; display: flex; flex-direction: column; gap: 20px; }
+        .card { background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); text-align: center; }
+        
+        label { font-size: 16px; font-weight: bold; display: block; margin-bottom: 10px; text-align: left; }
+        input[type="number"] { width: 100%; padding: 12px; font-size: 20px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; text-align: center; outline: none; transition: 0.3s; }
+        input[type="number"]:focus { border-color: #4CAF50; }
+
+        textarea { width: 100%; padding: 10px; font-size: 14px; border: 2px solid #ddd; border-radius: 8px; box-sizing: border-box; resize: none; outline: none; transition: 0.3s; height: 80px; font-family: inherit;}
+        textarea:focus { border-color: #4CAF50; }
+        
+        button { width: 100%; padding: 15px; font-size: 18px; background-color: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; margin-top: 10px; }
+        button:hover { background-color: #45a049; }
+        .next-btn { background-color: #1976d2; }
+        .next-btn:hover { background-color: #1565c0; }
+
+        .success-box { display: none; margin-top: 20px; padding: 20px; background-color: #e8f5e9; border-radius: 8px; border: 1px solid #c8e6c9; text-align: left; }
+        .success-box h3 { margin: 0 0 10px 0; color: #2e7d32; font-size: 18px; text-align: center;}
+        .my-score-display { font-size: 36px; font-weight: bold; color: #4CAF50; text-align: center; margin-bottom: 15px;}
+        .comment-display { font-size: 14px; color: #555; line-height: 1.6; border-top: 1px dashed #c8e6c9; padding-top: 10px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 左侧：展示作文 -->
+    <div class="essay-panel">
+        <span class="author-tag" id="authorTag">✍️ 作者：加载中...</span>
+        <h1 id="essayTitle">📝 标题加载中...</h1>
+        <p id="essayContent">作文内容加载中...</p>
+    </div>
+
+    <!-- 右侧：打分与评语 -->
+    <div class="score-panel">
+        <div class="card">
+            <div id="formArea">
+                <label for="score">1. 请输入您的打分（0-100）</label>
+                <input type="number" id="score" min="0" max="100" placeholder="例如：95">
+                
+                <label for="pros" style="margin-top: 15px;">2. 这篇作文的优点：</label>
+                <textarea id="pros" placeholder="写下这篇作文写得好的地方..."></textarea>
+                
+                <label for="cons" style="margin-top: 15px;">3. 需要改进的地方：</label>
+                <textarea id="cons" placeholder="写下你觉得还可以怎么修改..."></textarea>
+                
+                <button onclick="submitScore()">提交我的评价</button>
+            </div>
+            
+            <!-- 提交后显示结果 -->
+            <div id="successBox" class="success-box">
+                <h3>✅ 评价提交成功！</h3>
+                <div>您给出的分数是：</div>
+                <div id="myScoreDisplay" class="my-score-display">--</div>
+                <div id="commentDisplay" class="comment-display"></div>
+                <button class="next-btn" onclick="loadNextEssay()" style="margin-top: 15px;">👉 评价下一位同学</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 模拟作文数据库
+    const essays = [
+        { author: "李明同学", title: "《我的周末》", content: "上周末，我和爸爸妈妈一起去了郊外的公园。那里的风景非常美丽，树木郁郁葱葱，小鸟在枝头唱歌。我们在草地上野餐，还放了风筝。这真是一个快乐的周末啊！" },
+        { author: "王华同学", title: "《我最喜欢的动物》", content: "我最喜欢的动物是小狗。它有一身金黄色的毛，摸起来软绵绵的。每次我放学回家，它都会摇着尾巴在门口迎接我。它不仅是我的宠物，更是我的好朋友。" },
+        { author: "张雪同学", title: "《一次难忘的考试》", content: "昨天我们进行了数学期中考试。因为前一天晚上复习得很晚，考试时我有些犯困。虽然最后检查出了一道错题，但成绩出来还是不太理想。这次考试让我明白了，平时的积累比考前突击更重要。" }
+    ];
+    let currentIndex = 0;
+
+    // 加载作文
+    function loadEssay(index) {
+        const essay = essays[index];
+        document.getElementById('authorTag').innerText = `✍️ 作者：${essay.author}`;
+        document.getElementById('essayTitle').innerText = `📝 ${essay.title}`;
+        document.getElementById('essayContent').innerText = essay.content;
+        
+        // 重置右侧表单状态
+        document.getElementById('formArea').style.display = 'block';
+        document.getElementById('successBox').style.display = 'none';
+        document.getElementById('score').value = '';
+        document.getElementById('pros').value = '';
+        document.getElementById('cons').value = '';
+    }
+
+    // 提交评价
+    function submitScore() {
+        const myScore = parseFloat(document.getElementById('score').value);
+        const pros = document.getElementById('pros').value.trim();
+        const cons = document.getElementById('cons').value.trim();
+
+        if (isNaN(myScore) || myScore < 0 || myScore > 100) { 
+            alert('请输入0到100之间的有效数字哦！'); 
+            return; 
+        }
+
+        // 隐藏表单，显示结果
+        document.getElementById('formArea').style.display = 'none';
+        document.getElementById('myScoreDisplay').innerText = myScore;
+        
+        let commentHTML = '';
+        if (pros) commentHTML += `<strong>👍 优点：</strong>${pros}<br><br>`;
+        if (cons) commentHTML += `<strong>📝 改进建议：</strong>${cons}`;
+        document.getElementById('commentDisplay').innerHTML = commentHTML || '（未填写评语）';
+        
+        document.getElementById('successBox').style.display = 'block';
+    }
+
+    // 加载下一篇
+    function loadNextEssay() {
+        currentIndex++;
+        if (currentIndex < essays.length) { 
+            loadEssay(currentIndex); 
+        } else { 
+            alert('🎉 太棒了！您已经评价完所有同学的作文啦！'); 
+            currentIndex = 0; 
+            loadEssay(currentIndex); 
+        }
+    }
+
+    // 初始化加载第一篇
+    loadEssay(0);
+</script>
+
+</body>
+</html>
